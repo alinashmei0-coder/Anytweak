@@ -1,0 +1,75 @@
+name: Build Tweak
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: brew install ldid make
+
+    - name: Setup Theos
+      run: |
+        echo "THEOS=$PWD/theos" >> $GITHUB_ENV
+        if [ ! -d "theos" ]; then
+          git clone --recursive https://github.com/theos/theos.git
+        fi
+        mkdir -p theos/sdks
+        if [ ! -d "theos/sdks/iPhoneOS16.5.sdk" ]; then
+          curl -L https://codeload.github.com/theos/sdks/zip/refs/heads/master -o sdks.zip
+          unzip -q sdks.zip -d theos/
+          mv theos/sdks-master/* theos/sdks/
+          rm -rf theos/sdks-master sdks.zip
+        fi
+
+    - name: Build Tweak
+      run: |
+        export THEOS=$PWD/theos
+        export PATH=$THEOS/bin:$PATH
+        make clean
+        make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+    - name: Extract and Clean dylib
+      run: |
+        DEB_FILE=$(ls packages/*.deb | head -n 1)
+        mkdir -p deb_extract
+        cd deb_extract
+        ar x ../$DEB_FILE
+        if [ -f data.tar.lzma ]; then
+          tar -xf data.tar.lzma
+        elif [ -f data.tar.xz ]; then
+          tar -xf data.tar.xz
+        elif [ -f data.tar.gz ]; then
+          tar -xzf data.tar.gz
+        fi
+        cd ..
+        DYLIB_PATH=$(find deb_extract -name "*.dylib" -type f 2>/dev/null | head -1)
+        if [ -n "$DYLIB_PATH" ] && [ -f "$DYLIB_PATH" ]; then
+          cp "$DYLIB_PATH" ./kammelnaTweak.dylib
+          codesign --remove-signature kammelnaTweak.dylib || true
+          ldid -S kammelnaTweak.dylib || true
+          strip -S kammelnaTweak.dylib || true
+          echo "✅ dylib extracted and cleaned"
+        else
+          echo "❌ dylib not found"
+          exit 1
+        fi
+
+    - name: Upload Clean dylib
+      uses: actions/upload-artifact@v4
+      with:
+        name: kammelnaTweak.dylib
+        path: ./kammelnaTweak.dylib
+
+    - name: Upload deb
+      uses: actions/upload-artifact@v4
+      with:
+        name: kammelnaTweak.deb
+        path: ./packages/*.deb
