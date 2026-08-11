@@ -1,4 +1,5 @@
 #import "DumpMaster.h"
+#import <UIKit/UIKit.h>  // ✅ أضفنا هذا الاستيراد
 #import <objc/runtime.h>
 #import <objc/message.h>
 
