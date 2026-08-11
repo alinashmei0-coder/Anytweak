@@ -1,0 +1,9 @@
+Package: com.dumpmaster.tweak
+Name: DumpMaster
+Version: 1.0
+Architecture: iphoneos-arm64
+Description: استخراج جميع الكلاسات والدوال من أي تطبيق وتصديرها كملف JSON
+Maintainer: kammalen
+Author: kammalen
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000)
